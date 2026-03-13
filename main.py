@@ -1,12 +1,16 @@
 from flask import Flask, jsonify, render_template
 import requests
 from bs4 import BeautifulSoup
-from googlesearch import search
 
 app = Flask(__name__)
 
+# સૌથી શક્તિશાળી Headers (જે બ્રાઉઝર જેવું જ વર્તન કરશે)
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
 }
 
 @app.route('/')
@@ -16,108 +20,57 @@ def website():
 @app.route('/live')
 def live_matches():
     try:
-        # NDTV Sports જલ્દી બ્લોક નથી કરતું
-        link = "https://sports.ndtv.com/cricket/live-scores"
+        # સ્ત્રોત: ESPN Cricinfo (આ સૌથી વધુ સ્ટેબલ છે)
+        link = "https://www.espncricinfo.com/live-cricket-score"
         r = requests.get(link, headers=HEADERS, timeout=15)
         
+        # જો સર્વર બ્લોક કરે તો તે અહીં દેખાશે
+        if r.status_code != 200:
+            return jsonify([f"Error: Server returned status {r.status_code}. The site might be blocking Vercel."])
+
         page = BeautifulSoup(r.text, "html.parser")
         live_list = []
 
-        # NDTV ના લાઈવ સ્કોર કાર્ડ્સ શોધવા માટે
-        matches = page.find_all("div", class_="sp-scr_cd")
+        # ESPN Cricinfo ના લાઈવ કાર્ડ્સ શોધવા (નવા Tags મુજબ)
+        # આ Tags બદલાતા રહે છે, એટલે મેં ૩ અલગ અલગ રીત વાપરી છે
+        matches = page.find_all("div", class_="ds-flex ds-flex-col ds-mt-2 ds-mb-2")
         
+        if not matches:
+            matches = page.find_all("div", class_="ds-p-0")
+
         for m in matches:
-            # ટીમ અને સ્કોરની માહિતી ભેગી કરવી
-            data = m.get_text(separator=" ").strip()
-            if data:
-                # વધારાની સ્પેસ દૂર કરવી
-                clean_data = " ".join(data.split())
+            text = m.get_text(separator=" ").strip()
+            if text and len(text) > 10: # બહુ ટૂંકો ડેટા ના લેવો
+                clean_data = " ".join(text.split())
                 live_list.append(clean_data)
         
         if not live_list:
-            return jsonify(["No live matches found on NDTV at the moment."])
+            return jsonify(["No live matches found or Scraper needs update."])
             
         return jsonify(live_list)
+        
     except Exception as e:
-        return jsonify({"error": str(e)})
-
-from flask import Flask, jsonify, render_template
-import requests
-from bs4 import BeautifulSoup
-from googlesearch import search
-
-app = Flask(__name__)
-
-# નવી હેડર્સ લિસ્ટ
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-    'Accept-Language': 'en-US,en;q=0.9',
-}
-
-@app.route('/')
-def website():
-    return render_template('index.html')
-
-@app.route('/live')
-def live_matches():
-    try:
-        # NDTV Sports નો ઉપયોગ (Cricbuzz બ્લોક કરે છે એટલે)
-        link = "https://sports.ndtv.com/cricket/live-scores"
-        r = requests.get(link, headers=HEADERS, timeout=15)
-        
-        page = BeautifulSoup(r.text, "html.parser")
-        live_list = []
-
-        # NDTV ના લાઈવ સ્કોર કાર્ડ્સ
-        matches = page.find_all("div", class_="sp-scr_cd")
-        
-        for m in matches:
-            data = m.get_text(separator=" ").strip()
-            if data:
-                clean_data = " ".join(data.split())
-                live_list.append(clean_data)
-        
-        if not live_list:
-            return jsonify(["No live matches found at the moment."])
-            
-        return jsonify(live_list)
-    except Exception as e:
-        return jsonify({"error": str(e)})
+        return jsonify([f"System Error: {str(e)}"])
 
 @app.route('/schedule')
 def schedule():
     try:
-        # NDTV Sports Schedule page
+        # NDTV પર પાછા જઈએ કારણ કે તેનું શેડ્યૂલ સરળ છે
         link = "https://sports.ndtv.com/cricket/schedules-fixtures"
         r = requests.get(link, headers=HEADERS, timeout=15)
-        
         page = BeautifulSoup(r.text, "html.parser")
+        
         schedule_list = []
-
-        # NDTV પર શેડ્યૂલ માટેના ટેગ્સ
-        containers = page.find_all("div", class_="sp-scr_cd") # મેચ કાર્ડ્સ
+        containers = page.find_all("div", class_="sp-scr_cd")
         
         for item in containers:
             data = item.get_text(separator=" ").strip()
             if data:
-                clean_data = " ".join(data.split())
-                schedule_list.append(clean_data)
+                schedule_list.append(" ".join(data.split()))
 
-        if not schedule_list:
-            return jsonify(["No upcoming matches found in schedule."])
-            
-        return jsonify(schedule_list)
+        return jsonify(schedule_list if schedule_list else ["Schedule not found."])
     except Exception as e:
-        return jsonify({"error": str(e)})
-
-# Player Search Route (તમારો ઓરિજિનલ કોડ અહીં આવશે)
-@app.route('/players/<player_name>', methods=['GET'])
-def get_player(player_name):
-    # ... (તમારો પ્લેયર સર્ચ વાળો કોડ)
-    return jsonify({"message": "Player search logic here"})
+        return jsonify([f"Schedule Error: {str(e)}"])
 
 if __name__ == "__main__":
     app.run()
-
-
-
