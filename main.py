@@ -16,45 +16,28 @@ def website():
 @app.route('/live')
 def live_matches():
     try:
-        link = "https://www.cricbuzz.com/cricket-match/live-scores"
-        # timeout વધાર્યો છે અને headers વાપર્યા છે
+        # NDTV Sports જલ્દી બ્લોક નથી કરતું
+        link = "https://sports.ndtv.com/cricket/live-scores"
         r = requests.get(link, headers=HEADERS, timeout=15)
         
-        if r.status_code != 200:
-            return jsonify({"error": f"Cricbuzz server status: {r.status_code}"})
-
-        # જો Cricbuzz બ્લોક કરે તો પેજમાં 'captcha' કે 'bot' શબ્દ હશે
-        if "captcha" in r.text.lower() or "bot" in r.text.lower():
-            return jsonify(["Security Check: Cricbuzz is blocking the request. Please try after some time."])
-
         page = BeautifulSoup(r.text, "html.parser")
         live_list = []
 
-        # મેચ કાર્ડ્સ શોધવા માટે અલગ-અલગ ક્લાસ ટ્રાય કરવા
-        # રીત ૧: લેટેસ્ટ ક્લાસ
-        matches = page.find_all("div", class_="cb-mtch-lst")
+        # NDTV ના લાઈવ સ્કોર કાર્ડ્સ શોધવા માટે
+        matches = page.find_all("div", class_="sp-scr_cd")
         
-        # રીત ૨: જો રીત ૧ ફેલ જાય તો
-        if not matches:
-            matches = page.find_all("div", class_="cb-scr-wll-chvrn")
-            
-        # રીત ૩: તમારો ઓરિજિનલ ક્લાસ
-        if not matches:
-            matches = page.find_all("div", class_="cb-lv-scrs-col")
-
         for m in matches:
-            # get_text(separator=" ") વાપરવાથી સ્કોર અને ટીમનું નામ સ્પષ્ટ વંચાશે
+            # ટીમ અને સ્કોરની માહિતી ભેગી કરવી
             data = m.get_text(separator=" ").strip()
             if data:
-                # બિનજરૂરી સ્પેસ દૂર કરવી
+                # વધારાની સ્પેસ દૂર કરવી
                 clean_data = " ".join(data.split())
                 live_list.append(clean_data)
         
         if not live_list:
-            return jsonify(["No live matches found at the moment."])
+            return jsonify(["No live matches found on NDTV at the moment."])
             
         return jsonify(live_list)
-        
     except Exception as e:
         return jsonify({"error": str(e)})
 
@@ -79,4 +62,5 @@ def schedule():
 
 if __name__ == "__main__":
     app.run()
+
 
