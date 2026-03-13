@@ -124,46 +124,46 @@ def get_player(player_name):
     return jsonify(player_data)
 
 
-@app.route('/schedule')
-def schedule():
-    link = f"https://www.cricbuzz.com/cricket-schedule/upcoming-series/international"
-    source = requests.get(link, headers=HEADERS).text
-    page = BeautifulSoup(source, "lxml")
-
-    # Find all match containers
-    match_containers = page.find_all("div", class_="cb-col-100 cb-col")
-
-    matches = []
-
-    # Iterate through each match container
-    for container in match_containers:
-        # Extract match details
-        date = container.find("div", class_="cb-lv-grn-strip text-bold")
-        match_info = container.find("div", class_="cb-col-100 cb-col")
-        
-        if date and match_info:
-            match_date = date.text.strip()
-            match_details = match_info.text.strip()
-            matches.append(f"{match_date} - {match_details}")
-    
-    return jsonify(matches)
-
-
 @app.route('/live')
 def live_matches():
-    link = f"https://www.cricbuzz.com/cricket-match/live-scores"
-    source = requests.get(link, headers=HEADERS).text
-    page = BeautifulSoup(source, "lxml")
+    try:
+        link = "https://www.cricbuzz.com/cricket-match/live-scores"
+        # લાઈવ સ્કોર માટે Headers ખૂબ જરૂરી છે
+        source = requests.get(link, headers=HEADERS, timeout=10).text
+        page = BeautifulSoup(source, "html.parser") # lxml ની જગ્યાએ html.parser વાપરો
 
-    page = page.find("div",class_="cb-col cb-col-100 cb-bg-white")
-    matches = page.find_all("div",class_="cb-scr-wll-chvrn cb-lv-scrs-col")
+        # મેચ શોધવા માટેની નવી રીત
+        matches = page.find_all("div", class_="cb-lv-scrs-col")
+        
+        live_matches_list = []
+        for match in matches:
+            text = match.text.strip()
+            if text:
+                live_matches_list.append(text)
+        
+        return jsonify(live_matches_list)
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
-    live_matches_list = []
+@app.route('/schedule')
+def schedule():
+    try:
+        link = "https://www.cricbuzz.com/cricket-schedule/upcoming-series/international"
+        source = requests.get(link, headers=HEADERS, timeout=10).text
+        page = BeautifulSoup(source, "html.parser")
 
-    for i in range(len(matches)):
-        live_matches_list.append(matches[i].text.strip())
-    
-    return jsonify(live_matches_list)
+        # અપકમિંગ મેચ માટે Tags
+        match_containers = page.find_all("div", class_="cb-lv-grn-strip")
+        matches = []
+
+        for date_div in match_containers:
+            match_info = date_div.find_next_sibling("div")
+            if date_div and match_info:
+                matches.append(f"{date_div.text.strip()} - {match_info.text.strip()}")
+        
+        return jsonify(matches)
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 @app.route('/')
 def website():
@@ -171,3 +171,4 @@ def website():
 
 if __name__ == "__main__":
     app.run()
+
