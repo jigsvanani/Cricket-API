@@ -6,11 +6,15 @@ import re
 import time
 from flask import Response
 import json
-from googlesearch import search #pip install googlesearch-python
+from googlesearch import search # pip install googlesearch-python
 from flask import render_template
 
 app = Flask(__name__)
 
+# Cricbuzz બ્લોક ન કરે તે માટે Headers
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+}
 
 @app.route('/players/<player_name>', methods=['GET'])
 def get_player(player_name):
@@ -29,8 +33,8 @@ def get_player(player_name):
     except Exception as e:
         return {"error": f"Search failed: {str(e)}"}
     
-    # Get player profile page
-    c = requests.get(profile_link).text
+    # Get player profile page with headers
+    c = requests.get(profile_link, headers=HEADERS).text
     cric = BeautifulSoup(c, "lxml")
     profile = cric.find("div", id="playerProfile")
     pc = profile.find("div", class_="cb-col cb-col-100 cb-bg-white")
@@ -123,8 +127,7 @@ def get_player(player_name):
 @app.route('/schedule')
 def schedule():
     link = f"https://www.cricbuzz.com/cricket-schedule/upcoming-series/international"
-	headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-    source = requests.get(link).text
+    source = requests.get(link, headers=HEADERS).text
     page = BeautifulSoup(source, "lxml")
 
     # Find all match containers
@@ -149,19 +152,18 @@ def schedule():
 @app.route('/live')
 def live_matches():
     link = f"https://www.cricbuzz.com/cricket-match/live-scores"
-    source = requests.get(link).text
+    source = requests.get(link, headers=HEADERS).text
     page = BeautifulSoup(source, "lxml")
 
     page = page.find("div",class_="cb-col cb-col-100 cb-bg-white")
     matches = page.find_all("div",class_="cb-scr-wll-chvrn cb-lv-scrs-col")
 
-    live_matches = []
+    live_matches_list = []
 
     for i in range(len(matches)):
-        live_matches.append(matches[i].text.strip())
+        live_matches_list.append(matches[i].text.strip())
     
-    
-    return jsonify(live_matches)
+    return jsonify(live_matches_list)
 
 @app.route('/')
 def website():
