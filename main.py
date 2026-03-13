@@ -81,7 +81,7 @@ def live_matches():
         
         # મુખ્ય કન્ટેનર શોધો જેમાં બધી સીરીઝ છે
         # (તમારા સ્ક્રીનશોટ મુજબનો ક્લાસ વાપર્યો છે)
-        main_container = soup.find("div", class_="flex flex-col gap-3")
+        main_container = soup.find("div", class_="flex flex-col gap-2")
         
         # બધી સીરીઝના બ્લોક્સ મેળવો
         series_blocks = main_container.find_all("div", recursive=False)
@@ -145,3 +145,4 @@ def website():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
