@@ -17,25 +17,45 @@ def website():
 def live_matches():
     try:
         link = "https://www.cricbuzz.com/cricket-match/live-scores"
-        r = requests.get(link, headers=HEADERS, timeout=10)
+        # timeout વધાર્યો છે અને headers વાપર્યા છે
+        r = requests.get(link, headers=HEADERS, timeout=15)
         
-        # જો Cricbuzz બ્લોક કરે તો Error મેસેજ આપશે
         if r.status_code != 200:
-            return jsonify({"error": f"Cricbuzz blocked request: {r.status_code}"})
+            return jsonify({"error": f"Cricbuzz server status: {r.status_code}"})
 
-        page = BeautifulSoup(r.text, "html.parser") # lxml ની જગ્યાએ html.parser વાપરો
-        
-        # મેચ શોધવા માટેના Tags (Cricbuzz ના લેટેસ્ટ ક્લાસ મુજબ)
-        matches = page.find_all("div", class_="cb-lv-scrs-col")
-        
+        # જો Cricbuzz બ્લોક કરે તો પેજમાં 'captcha' કે 'bot' શબ્દ હશે
+        if "captcha" in r.text.lower() or "bot" in r.text.lower():
+            return jsonify(["Security Check: Cricbuzz is blocking the request. Please try after some time."])
+
+        page = BeautifulSoup(r.text, "html.parser")
         live_list = []
-        for m in matches:
-            if m.text.strip():
-                live_list.append(m.text.strip())
+
+        # મેચ કાર્ડ્સ શોધવા માટે અલગ-અલગ ક્લાસ ટ્રાય કરવા
+        # રીત ૧: લેટેસ્ટ ક્લાસ
+        matches = page.find_all("div", class_="cb-mtch-lst")
         
+        # રીત ૨: જો રીત ૧ ફેલ જાય તો
+        if not matches:
+            matches = page.find_all("div", class_="cb-scr-wll-chvrn")
+            
+        # રીત ૩: તમારો ઓરિજિનલ ક્લાસ
+        if not matches:
+            matches = page.find_all("div", class_="cb-lv-scrs-col")
+
+        for m in matches:
+            # get_text(separator=" ") વાપરવાથી સ્કોર અને ટીમનું નામ સ્પષ્ટ વંચાશે
+            data = m.get_text(separator=" ").strip()
+            if data:
+                # બિનજરૂરી સ્પેસ દૂર કરવી
+                clean_data = " ".join(data.split())
+                live_list.append(clean_data)
+        
+        if not live_list:
+            return jsonify(["No live matches found at the moment."])
+            
         return jsonify(live_list)
+        
     except Exception as e:
-        # જો કોઈ ભૂલ આવે તો તે અહીં દેખાશે
         return jsonify({"error": str(e)})
 
 @app.route('/schedule')
@@ -59,3 +79,4 @@ def schedule():
 
 if __name__ == "__main__":
     app.run()
+
